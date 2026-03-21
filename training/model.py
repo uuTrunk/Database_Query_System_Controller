@@ -133,8 +133,6 @@ def training(epochs: int = 100, threshold: float = 0.1, lr: float = 1e-5) -> Non
     """
     random.seed(42)
     torch.manual_seed(42)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(42)
 
     ensure_runtime_directories()
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -152,7 +150,7 @@ def training(epochs: int = 100, threshold: float = 0.1, lr: float = 1e-5) -> Non
 
     model = BertRegressionModel()
     tokenizer = get_tokenizer()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     model.to(device)
 
     loss_function = nn.MSELoss()

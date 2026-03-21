@@ -12,7 +12,7 @@ logger = setup_logger(__name__)
 
 _tokenizer: Optional[BertTokenizer] = None
 _model: Optional[BertRegressionModel] = None
-_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+_device = torch.device("cpu")
 
 
 def _load_predictor() -> None:
