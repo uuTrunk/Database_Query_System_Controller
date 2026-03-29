@@ -1,129 +1,96 @@
+from threading import Lock
+from typing import Dict, List, Tuple
+
 import pandas as pd
-from sqlalchemy import text, inspect
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from data_access.db_conn import engine
 
 tables_data = None
+foreign_keys_cache = None
+comments_cache = None
+tables_data_lock = Lock()
 
 
-def get_foreign_keys():
-    """Collect foreign key constraints for all tables.
+def _build_select_all_query(table_name: str, columns: List[str]):
+    """Build a deterministic SELECT statement with explicit columns.
 
     Args:
-        None.
+        table_name: Physical table name from SQLAlchemy inspector.
+        columns: Ordered table column names from SQLAlchemy inspector.
 
     Returns:
-        dict: Nested mapping where top-level keys are table names and values map
-        constrained columns to ``(referred_table, referred_column)`` tuples.
+        sqlalchemy.sql.elements.TextClause: SQL text object.
     """
-    inspector = inspect(engine)
-    foreign_keys = {}
+    quoted_columns = ", ".join(f"`{column}`" for column in columns)
+    return text(f"SELECT {quoted_columns} FROM `{table_name}`")
+
+
+def _load_schema_metadata(inspector) -> Tuple[Dict[str, Dict[str, Tuple[str, str]]], List[Dict[str, Dict[str, str]]]]:
+    """Load foreign keys and table/column comments in one metadata pass."""
+    foreign_keys: Dict[str, Dict[str, Tuple[str, str]]] = {}
+    table_comments: Dict[str, str] = {}
+    column_comments: Dict[str, Dict[str, str]] = {}
+
     for table_name in inspector.get_table_names():
         fks = inspector.get_foreign_keys(table_name)
         if fks:
             foreign_keys[table_name] = {}
             for fk in fks:
-                for column in fk['constrained_columns']:
-                    foreign_keys[table_name][column] = (
-                        fk['referred_table'],
-                        fk['referred_columns'][0]  # 假设外键总是对应单个列
-                    )
-    return foreign_keys
+                constrained_columns = fk.get("constrained_columns", [])
+                referred_columns = fk.get("referred_columns", [])
+                referred_table = fk.get("referred_table")
+                for index, column in enumerate(constrained_columns):
+                    if referred_table and index < len(referred_columns):
+                        foreign_keys[table_name][column] = (referred_table, referred_columns[index])
 
+        table_comment_info = inspector.get_table_comment(table_name) or {}
+        table_comments[table_name] = table_comment_info.get("text") or ""
 
-def get_table_and_column_comments():
-    """Collect table-level and column-level comments from the database.
-
-    Args:
-        None.
-
-    Returns:
-        list: Two-item list ``[table_comments, column_comments]`` where
-        ``table_comments`` maps table names to comments and ``column_comments``
-        maps table names to per-column comments.
-    """
-    inspector = inspect(engine)
-    table_comments = {}
-    column_comments = {}
-    table_names = inspector.get_table_names()
-    for table_name in table_names:
-        table_comment = inspector.get_table_comment(table_name)
-        table_comments[table_name] = table_comment['text']
-        columns = inspector.get_columns(table_name)
         column_comments[table_name] = {}
-        for column in columns:
-            column_comments[table_name][column['name']] = column['comment']
-    return [table_comments, column_comments]
+        for column in inspector.get_columns(table_name):
+            column_name = str(column.get("name", ""))
+            column_comments[table_name][column_name] = str(column.get("comment") or "")
+
+    return foreign_keys, [table_comments, column_comments]
 
 
-def get_data_from_db():
-    """Load all table data and related schema metadata.
+def _load_tables_data(inspector) -> Dict[str, pd.DataFrame]:
+    """Load all table data using explicit column lists for stable query plans."""
+    loaded_tables: Dict[str, pd.DataFrame] = {}
+    with engine.connect() as connection:
+        for table_name in inspector.get_table_names():
+            columns = [str(column.get("name")) for column in inspector.get_columns(table_name)]
+            query = _build_select_all_query(table_name, columns)
+            loaded_tables[table_name] = pd.read_sql(query, connection)
+    return loaded_tables
 
-    Table data is cached in the module-level variable ``tables_data``.
+
+def get_data_from_db(force_reload: bool = False):
+    """Load table data and schema metadata with in-process cache.
 
     Args:
-        None.
+        force_reload: Whether to bypass cache and reload from database.
 
     Returns:
-        tuple: ``(tables_data, keys, comments)`` where ``tables_data`` is a table
-        to DataFrame mapping, ``keys`` stores foreign key relationships, and
-        ``comments`` is the output of ``get_table_and_column_comments()``.
+        tuple: ``(tables_data, keys, comments)``.
     """
     global tables_data
-    if tables_data is None:
-        with engine.connect() as connection:
-            query = text("SHOW TABLES")
-            tables = connection.execute(query).fetchall()
+    global foreign_keys_cache
+    global comments_cache
 
-            # 准备一个字典来存储所有表的DataFrame
-            tables_data = {}
+    if force_reload or tables_data is None or foreign_keys_cache is None or comments_cache is None:
+        with tables_data_lock:
+            if force_reload or tables_data is None or foreign_keys_cache is None or comments_cache is None:
+                try:
+                    inspector = inspect(engine)
+                    tables_data = _load_tables_data(inspector)
+                    foreign_keys_cache, comments_cache = _load_schema_metadata(inspector)
+                except SQLAlchemyError as exc:
+                    raise RuntimeError(f"Failed to load database data: {exc}") from exc
 
-            # 遍历所有表名
-            for table_name in tables:
-                table_name = table_name[0]  # 表名是一个元组，取第一个元素
-                # Table names are discovered from DB metadata, not user input.
-                query = text(f"SELECT * FROM `{table_name}`")
-                tables_data[table_name] = pd.read_sql(query, connection)
-
-    # 打印每个表的内容
-    # for table_name, table_df in tables_data.items():
-    #     print(f"Table: {table_name}")
-    #     print(table_df)
-    #     print("###########################################\n\n")
-
-    # # 创建一个字典来存储合并后的DataFrame
-    # merged_tables_data = {}
-    #
-    # # 遍历所有表，尝试将它们与其他表根据公共列连接
-    # merged_table_names = set()  # 用于存储已合并的表名组合，避免重复
-    # for table_name1, table_df1 in tables_data.items():
-    #     for table_name2, table_df2 in tables_data.items():
-    #         if table_name1 != table_name2 and (table_name2, table_name1) not in merged_table_names:
-    #             # 检查两个表是否有公共列
-    #             common_columns = set(table_df1.columns).intersection(set(table_df2.columns))
-    #             if common_columns:
-    #                 # 如果有公共列，则进行等值连接
-    #                 merged_df = pd.merge(table_df1, table_df2, on=list(common_columns), how='outer')
-    #                 # 创建新表名，并确保表名按字母顺序排序
-    #                 sorted_table_names = sorted([table_name1, table_name2])
-    #                 merged_table_name = "_".join(sorted_table_names)
-    #                 # 将合并后的DataFrame添加到merged_tables_data
-    #                 merged_tables_data[merged_table_name] = merged_df
-    #                 # 添加已合并的表名组合到集合中，避免重复
-    #                 merged_table_names.add((table_name1, table_name2))
-    #                 # 标记表名1和表名2已被合并，不需要单独添加
-    #                 merged_table_names.add(table_name1)
-    #                 merged_table_names.add(table_name2)
-
-    # # 添加没有被合并的原始表到结果字典
-    # for table_name, table_df in tables_data.items():
-    #     if table_name not in merged_table_names:
-    #         merged_tables_data[table_name] = table_df
-
-    # return tables_data, merged_tables_data
-    keys = get_foreign_keys()
-    comments = get_table_and_column_comments()
-    return tables_data, keys, comments
+    return tables_data, foreign_keys_cache, comments_cache
 
 
 if __name__ == "__main__":
@@ -131,8 +98,4 @@ if __name__ == "__main__":
     print(type(data), "\n")
     print(data[2][1])
     print("###########################################\n\n")
-    # for table_name, table_df in mdata.items():
-    #     print(f"Table: {table_name}")
-    #     print(table_df)
-    #     print(type(table_df))
 

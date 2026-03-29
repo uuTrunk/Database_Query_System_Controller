@@ -96,7 +96,7 @@ The configuration file is ./config/config.yaml.
 Just provide the connection string. The model reads database schema automatically, and no extra configuration is needed.
 
 ```yml
-mysql: mysql+pymysql://root:123456@127.0.0.1/data_copilot
+mysql: mysql+pymysql://root:123456@127.0.0.1/world
 # mysql: mysql+pymysql://username:password@host:port/database
 ```
 

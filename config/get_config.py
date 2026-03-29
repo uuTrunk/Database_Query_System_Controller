@@ -8,6 +8,7 @@ from utils.paths import CONFIG_FILE
 REQUIRED_TOP_LEVEL_KEYS = ("mysql", "llm", "server")
 REQUIRED_SERVER_KEYS = ("host", "port")
 REQUIRED_LLM_KEYS = ("model_provider", "model")
+REQUIRED_AUTH_KEYS = ("username",)
 
 
 def _validate_config(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -33,6 +34,20 @@ def _validate_config(data: Dict[str, Any]) -> Dict[str, Any]:
     llm_missing = [key for key in REQUIRED_LLM_KEYS if key not in data["llm"]]
     if llm_missing:
         raise KeyError(f"Missing required llm config keys: {llm_missing}")
+
+    auth = data.get("auth")
+    if auth is not None:
+        if not isinstance(auth, dict):
+            raise TypeError("Config key 'auth' must be a mapping when provided")
+
+        auth_missing = [key for key in REQUIRED_AUTH_KEYS if key not in auth]
+        if auth_missing:
+            raise KeyError(f"Missing required auth config keys: {auth_missing}")
+
+        has_plain_password = bool(auth.get("password"))
+        has_password_hash = bool(auth.get("password_sha256"))
+        if not has_plain_password and not has_password_hash:
+            raise KeyError("Auth config requires at least one of: password, password_sha256")
 
     return data
 

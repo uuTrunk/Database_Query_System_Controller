@@ -34,7 +34,7 @@ def _load_predictor() -> None:
     model_path = Path(BEST_MODEL_PATH)
     if not model_path.exists():
         raise FileNotFoundError(
-            f"Predict model not found: {model_path}. Please run training/model.py first."
+            f"Predict model not found: {model_path}. Please run python -m training.model first."
         )
 
     _tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-uncased")

@@ -95,7 +95,7 @@ pip install -r requirement.txt
 #### 数据库配置
 连接即可，模型会自动读取数据库结构，无需额外配置
 ```yml
-mysql: mysql+pymysql://root:123456@127.0.0.1/data_copilot
+mysql: mysql+pymysql://root:123456@127.0.0.1/world
 # mysql: mysql+pymysql://用户名:密码@地址:端口/数据库名
 ```
 
@@ -125,6 +125,28 @@ llm:
 ```
 
 如果需要本地离线部署，相关代码在 `./llm_access/qwen_access.py`
+
+#### 登录鉴权配置
+
+登录页账号密码从 `./config/config.yaml` 读取。
+
+```yml
+auth:
+  username: admin
+  password: lmx175586
+  # 可选：填写 SHA-256 后，系统优先使用哈希校验密码
+  # password_sha256: "3d1b3d84af130f5fcd89bf6d6ecf8cf6a7687f13153ad70f5ba3fddf26f4f526"
+```
+
+说明：
+
+- 未配置 `password_sha256` 时，使用 `password` 明文校验。
+- 配置了 `password_sha256` 时，优先使用哈希校验，建议生产环境仅保留哈希值。
+- 可用以下命令生成 SHA-256：
+
+```bash
+python -c "import hashlib;print(hashlib.sha256('你的密码'.encode('utf-8')).hexdigest())"
+```
 
 #### 获取 apikey
 

@@ -1,5 +1,7 @@
 import base64
 import concurrent.futures
+import hashlib
+import hmac
 import json
 import math
 import random
@@ -8,17 +10,24 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from pywebio import start_server
-from pywebio.input import TEXT, input
-from pywebio.output import put_error, put_image, put_markdown, put_text
+from pywebio.input import PASSWORD, TEXT, input, input_group
+from pywebio.output import clear, put_error, put_html, put_image, put_markdown, put_text
 
 from config.get_config import config_data
 from training.predict import predict
 from utils.http_client import HTTPClient, HTTPClientError
 from utils.logger import setup_logger
-from utils.paths import APP_LOG_FILE, TMP_IMG_DIR, ensure_runtime_directories
+from utils.paths import APP_LOG_FILE, LOGIN_PAGE_TEMPLATE_FILE, TMP_IMG_DIR, ensure_runtime_directories
 
 logger = setup_logger(__name__, log_file=str(APP_LOG_FILE))
 ensure_runtime_directories()
+
+auth_config = config_data.get("auth", {}) if isinstance(config_data, dict) else {}
+LOGIN_USERNAME = str(auth_config.get("username", "admin"))
+LOGIN_PASSWORD = str(auth_config.get("password", ""))
+LOGIN_PASSWORD_SHA256 = str(auth_config.get("password_sha256", "")).strip().lower()
+
+DEFAULT_LOGIN_PAGE_HTML = """<div style=\"text-align:center;margin-top:10vh;font-family:'Segoe UI',sans-serif;\"><h1>Data Copilot</h1></div>"""
 
 http_client = HTTPClient(
     host=config_data["server"]["host"],
@@ -28,6 +37,25 @@ http_client = HTTPClient(
     backoff_seconds=1.0,
     logger=logger,
 )
+
+
+def _compute_future_timeout_seconds(client: HTTPClient, safety_margin: float = 5.0) -> float:
+    """Compute a safe wait timeout for future.result based on HTTP retry policy.
+
+    Args:
+        client (HTTPClient): Configured HTTP client instance.
+        safety_margin (float, optional): Extra seconds added to avoid edge truncation.
+
+    Returns:
+        float: Maximum expected request wall time in seconds.
+    """
+    attempts = max(1, int(client.max_retries) + 1)
+    request_budget = float(client.timeout) * attempts
+    # backoff pattern in HTTPClient: backoff * 2^(attempt_index-1) for failed attempts before last one
+    backoff_budget = 0.0
+    for attempt_index in range(1, attempts):
+        backoff_budget += float(client.backoff_seconds) * (2 ** (attempt_index - 1))
+    return request_budget + backoff_budget + max(0.0, float(safety_margin))
 
 
 def calculate_optimal_threads(success_prob: float) -> int:
@@ -116,6 +144,49 @@ def parse_and_save_image(status_code: int, response_body: bytes) -> Tuple[Option
     return image_path, data
 
 
+def _render_login_page() -> None:
+    """Render a Chrome-inspired static login screen."""
+    try:
+        login_html = LOGIN_PAGE_TEMPLATE_FILE.read_text(encoding="utf-8")
+    except Exception as exc:
+        logger.warning("Failed to load login template %s: %s", LOGIN_PAGE_TEMPLATE_FILE, exc)
+        login_html = DEFAULT_LOGIN_PAGE_HTML
+
+    put_html(login_html)
+
+
+def _authenticate_user() -> None:
+    """Authenticate with fixed admin credentials before entering the dashboard."""
+
+    def _password_is_valid(raw_password: str) -> bool:
+        if LOGIN_PASSWORD_SHA256:
+            candidate_hash = hashlib.sha256(raw_password.encode("utf-8")).hexdigest().lower()
+            return hmac.compare_digest(candidate_hash, LOGIN_PASSWORD_SHA256)
+        return hmac.compare_digest(raw_password, LOGIN_PASSWORD)
+
+    while True:
+        clear()
+        _render_login_page()
+        credentials = input_group(
+            "",
+            [
+                input(name="username", type=TEXT, required=True, placeholder="请输入账号"),
+                input(name="password", type=PASSWORD, required=True, placeholder="请输入密码"),
+            ],
+        )
+
+        if (
+            hmac.compare_digest(str(credentials.get("username", "")), LOGIN_USERNAME)
+            and _password_is_valid(str(credentials.get("password", "")))
+        ):
+            clear()
+            put_markdown("## 登录成功")
+            put_text("正在进入可视化界面...")
+            return
+
+        put_error("账号或密码错误，请重试。")
+
+
 def main() -> None:
     """Run the interactive PyWebIO app for graph generation requests.
 
@@ -125,6 +196,7 @@ def main() -> None:
     Returns:
         None: This function serves an interactive loop until the process exits.
     """
+    _authenticate_user()
     put_markdown("# Data Copilot")
 
     while True:
@@ -154,6 +226,7 @@ def main() -> None:
         }
 
         results = []
+        future_timeout_seconds = _compute_future_timeout_seconds(http_client)
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
             futures = [
                 executor.submit(http_client.post_json, "/ask/graph-steps", request)
@@ -162,7 +235,7 @@ def main() -> None:
 
             for future in concurrent.futures.as_completed(futures):
                 try:
-                    status_code, response_body = future.result(timeout=65)
+                    status_code, response_body = future.result(timeout=future_timeout_seconds)
                     results.append((status_code, response_body))
                 except HTTPClientError as exc:
                     logger.error("Request failed after retries: %s", exc)

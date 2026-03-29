@@ -21,6 +21,8 @@ llm_access/api_key_openai.txt
 logs/
 
 *.pth
+*.png
+*.txt
 *.pt
 *.bin
 *.ckpt
@@ -41,6 +43,7 @@ tmp_imgs/
 tmp_img/
 
 gened_questions/*.csv
+config/*.yaml
 
 temp.png
 temp.html

@@ -10,9 +10,9 @@ APP_LOG_FILE = PROJECT_ROOT / "ask_ai.log"
 
 OUTPUT_STORE_DIR = PROJECT_ROOT / "output_store"
 ASK_GRAPH_OUTPUT_DIR = OUTPUT_STORE_DIR / "ask-graph"
-ASK_ECHART_OUTPUT_DIR = OUTPUT_STORE_DIR / "ask-echart"
 DATA_LOG_DIR = OUTPUT_STORE_DIR / "data_log"
 TMP_IMG_DIR = PROJECT_ROOT / "tmp_img"
+LOGIN_PAGE_TEMPLATE_FILE = PROJECT_ROOT / "static" / "login" / "login_page.html"
 
 TRAIN_LOG_DIR = PROJECT_ROOT / "train_logs"
 SAVES_DIR = PROJECT_ROOT / "saves"
@@ -20,7 +20,6 @@ BEST_MODEL_PATH = SAVES_DIR / "model_best.pth"
 
 TRAINING_QUESTIONS_GRAPH_PATH = PROJECT_ROOT / "gened_questions" / "training_questions_for_graph.csv"
 ASK_GRAPH_LOG_CSV = DATA_LOG_DIR / "ask_graph_1.csv"
-ASK_ECHART_LOG_CSV = DATA_LOG_DIR / "ask_echart.csv"
 
 
 def ensure_directories(paths: Iterable[PathLike]) -> None:
@@ -35,7 +34,6 @@ def ensure_runtime_directories() -> None:
         [
             OUTPUT_STORE_DIR,
             ASK_GRAPH_OUTPUT_DIR,
-            ASK_ECHART_OUTPUT_DIR,
             DATA_LOG_DIR,
             TMP_IMG_DIR,
             TRAIN_LOG_DIR,

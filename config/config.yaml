@@ -1,5 +1,5 @@
-mysql: mysql+pymysql://root:lmx175586@127.0.0.1/data_copilot
-# classicmodels data_copilot
+mysql: mysql+pymysql://root:lmx175586@127.0.0.1/world
+# world
 
 llm:
   model_provider: qwen #qwen #openai
@@ -17,3 +17,10 @@ llm:
 server:
   port: 8087
   host: 127.0.0.1
+
+auth:
+  username: admin
+  password: lmx175586
+  # Optional: prefer password_sha256 in production.
+  # Generate by: python -c "import hashlib;print(hashlib.sha256('lmx175586'.encode('utf-8')).hexdigest())"
+  password_sha256: "665e0a6079fc59a977338219739e8a9d6570c3446b6c38c3a9decbb1701064cf"

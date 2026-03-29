@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
     if not TRAINING_QUESTIONS_GRAPH_PATH.exists():
         raise FileNotFoundError(
-            f"Question file not found: {TRAINING_QUESTIONS_GRAPH_PATH}. Run gen_training_questions.py first."
+            f"Question file not found: {TRAINING_QUESTIONS_GRAPH_PATH}. Run python -m training.gen_training_questions first."
         )
 
     question_list = read_csv_to_list(str(TRAINING_QUESTIONS_GRAPH_PATH))

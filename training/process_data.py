@@ -1,3 +1,4 @@
+from utils.paths import ASK_GRAPH_LOG_CSV
 from utils.read_csv import read_csv_to_list_row
 
 
@@ -58,5 +59,4 @@ def process_output_list(output_file, verbose=False):
 
 
 if __name__ == "__main__":
-    output_file_name = "../output_store/data_log/ask_graph_1.csv"
-    process_output_list(output_file_name)
+    process_output_list(ASK_GRAPH_LOG_CSV)
