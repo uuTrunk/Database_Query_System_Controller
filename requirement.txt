@@ -13,4 +13,3 @@ PyYAML==6.0.1
 torch~=2.2.1
 transformers~=4.39.1
 
-pywebio

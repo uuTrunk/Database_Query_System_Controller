@@ -1,51 +1,23 @@
-.idea/
-.vscode/
+# Node/Vue
+Controller/node_modules/
+Controller/dist/
+Controller/dist-ssr/
+Controller/*.local
+Controller/.vscode/*
+!Controller/.vscode/extensions.json
 
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.ipynb_checkpoints/
-
-.venv/
-venv/
-.conda/
-
-llm_access/api_key_qwen.txt
-llm_access/api_key_openai.txt
+# Environment
 .env
 .env.*
+!.env.example
 
-*.log
-logs/
+# NPM/Yarn/PNPM
+Controller/npm-debug.log*
+Controller/yarn-debug.log*
+Controller/yarn-error.log*
+Controller/pnpm-debug.log*
 
-*.pth
-*.png
-*.txt
-*.pt
-*.bin
-*.ckpt
-*.safetensors
-*.onnx
-*.h5
-*.pickle
-*.joblib
-
-output_img/
-cache/
-output_store/
-saves/
-train_logs/
-training/saves/
-training/train_logs/
-tmp_imgs/
-tmp_img/
-
-gened_questions/*.csv
-config/*.yaml
-
-temp.png
-temp.html
-.temp
-*.tmp
+# Python (just in case)
+__pycache__/
+*.pyc
+venv/
