@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import fs from 'fs'
 import path from 'path'
@@ -28,6 +28,9 @@ try {
 
 export default defineConfig({
   plugins: [vue()],
+  test: {
+    environment: 'happy-dom'
+  },
   define: {
     __AGENT_PORT__: JSON.stringify(agentPort),
     __TRAINING_PORT__: JSON.stringify(trainingPort),

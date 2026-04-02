@@ -15,10 +15,14 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.12.0",
     "@vitejs/plugin-vue": "^6.0.5",
+    "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.9.0",
+    "happy-dom": "^20.8.9",
     "js-yaml": "^4.1.1",
+    "jsdom": "^29.0.1",
     "typescript": "~5.9.3",
     "vite": "^8.0.1",
+    "vitest": "^4.1.2",
     "vue-tsc": "^3.2.5"
   }
 }
