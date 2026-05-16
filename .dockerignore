@@ -1,10 +1,16 @@
 .git
 .gitignore
-.vscode
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-Controller/node_modules
-Controller/dist
-.env
+
+# 忽略 Node 依赖和日志 (注意加上 Controller/ 前缀)
+Controller/node_modules/
+npm-debug.log*
+yarn-error.log*
+yarn-debug.log*
+
+# 构建输出 
+Controller/dist/
+Controller/dist-ssr/
+
+# IDE
+.vscode/
+.idea/
