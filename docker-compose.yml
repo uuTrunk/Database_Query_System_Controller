@@ -1,0 +1,38 @@
+name: dqs-stack
+
+services:
+  agent:
+    build:
+      context: ../Database_Query_System_Agent
+      dockerfile: Dockerfile
+      target: agent-runtime
+    image: dqs-agent:latest
+    container_name: dqs-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  training:
+    build:
+      context: ../Database_Query_System_Training
+      dockerfile: Dockerfile
+      target: training-runtime
+    image: dqs-training:latest
+    container_name: dqs-training
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+
+  controller:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: controller-runtime
+    image: dqs-controller:latest
+    container_name: dqs-controller
+    restart: unless-stopped
+    depends_on:
+      - agent
+      - training
+    ports:
+      - "5173:80"

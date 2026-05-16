@@ -30,3 +30,49 @@ npm install
 npm run dev
 ```
 将热重载功能开启。该应用将会在默认的界面网址监听（通常为 http://localhost:5173/ \)。
+
+## 使用 Docker 部署三个项目（分层优化磁盘占用）
+
+在 `Database_Query_System_Controller` 根目录执行：
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+启动后端口映射：
+
+- `5173 -> Controller (Nginx 静态站点)`
+- `8000 -> Agent (Django)`
+- `8001 -> Training (Django)`
+
+访问地址：
+
+- 前端：`http://localhost:5173`
+- Agent API：`http://localhost:8000`
+- Training API：`http://localhost:8001`
+
+### 分层优化点
+
+当前 Docker 方案使用了多层策略降低磁盘与构建开销：
+
+1. **共享 Python 依赖基础层**：`Agent` 与 `Training` 都采用 `python-base` 构建阶段，先安装共同依赖，再在各自运行层叠加差异包。
+2. **多阶段构建前端**：`Controller` 先用 `node:alpine` 构建静态资源，再复制到 `nginx:alpine` 运行层，避免把 Node 工具链带入最终镜像。
+3. **精简构建上下文**：各仓库提供 `.dockerignore`，排除了 `node_modules`、缓存、日志、测试输出等无关文件。
+4. **BuildKit 缓存挂载**：`pip` 与 `npm` 安装步骤使用缓存挂载，重复构建时可显著减少下载与构建时间。
+
+### 常用命令
+
+```bash
+# 查看服务状态
+docker compose ps
+
+# 查看日志
+docker compose logs -f
+
+# 停止并删除容器
+docker compose down
+
+# 停止并删除容器 + 网络 + 本地镜像
+docker compose down --rmi local
+```
